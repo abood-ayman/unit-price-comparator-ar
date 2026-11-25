@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>مقارنة أسعار العبوات: أنسب سعر للكيلو أو اللتر | أداة مجانية</title>
+<meta name="description" content="قارن بين عبوات نفس المنتج بأحجام مختلفة واعرف أيهم أوفر بالكيلو أو اللتر أو القطعة. تعمل على جهازك دون إرسال أي بيانات.">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Tahoma,'Segoe UI',Arial,sans-serif;background:#f1f5f9;color:#1e293b;line-height:1.7;min-height:100vh;display:flex;flex-direction:column}
+header{background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff;padding:1.6rem 1rem;text-align:center}
+header h1{font-size:1.5rem}
+.tagline{opacity:.92;font-size:.95rem;margin-top:.25rem}
+main{flex:1;width:100%;max-width:560px;margin:0 auto;padding:1rem}
+.card{background:#fff;border-radius:14px;padding:1.25rem;box-shadow:0 1px 4px rgba(15,23,42,.08);margin-bottom:1rem}
+.card h2{font-size:1.1rem;margin-bottom:.4rem;color:#0f766e}
+label{display:block;font-weight:700;margin:.75rem 0 .3rem}
+input,select,textarea{width:100%;padding:.7rem .8rem;border:1.5px solid #cbd5e1;border-radius:10px;font-size:1rem;font-family:inherit;background:#fff;color:#1e293b}
+input:focus,select:focus,textarea:focus{outline:none;border-color:#0f766e;box-shadow:0 0 0 3px rgba(20,184,166,.18)}
+.row{display:flex;gap:.6rem}
+.row>*{flex:1;min-width:0}
+button{display:inline-block;width:100%;padding:.8rem;border:0;border-radius:10px;background:#0f766e;color:#fff;font-size:1.05rem;font-weight:700;cursor:pointer;font-family:inherit;margin-top:1rem}
+button:hover{background:#115e59}
+button.ghost{background:#e2e8f0;color:#1e293b}
+.result{background:#ecfdf5;border:1.5px solid #6ee7b7;border-radius:10px;padding:1rem;margin-top:1rem;font-size:1.05rem;word-break:break-word}
+.result b{color:#047857}
+.result.warn{background:#fffbeb;border-color:#fcd34d}
+.result.warn b{color:#b45309}
+.result.bad{background:#fef2f2;border-color:#fca5a5}
+.result.bad b{color:#b91c1c}
+.muted{color:#64748b;font-size:.85rem}
+footer{background:#0f172a;color:#94a3b8;text-align:center;padding:1.2rem 1rem;font-size:.85rem;line-height:1.9}
+footer a{color:#5eead4}
+table{width:100%;border-collapse:collapse;margin-top:.5rem}
+th,td{padding:.5rem;border-bottom:1px solid #e2e8f0;text-align:right;font-size:.95rem}
+.big{font-size:1.6rem;font-weight:800}
+.hidden{display:none}
+.chk{display:flex;align-items:center;gap:.5rem;margin:.3rem 0}
+.chk input{width:auto}
+
+</style>
+</head>
+<body>
+<header>
+<h1>مقارنة أسعار العبوات</h1>
+<p class="tagline">عبوة أكبر بسعر أعلى.. هل هي أوفر فعلًا بالكيلو؟ قارن واعرف في ثوانٍ</p>
+</header>
+<main>
+<div class="card">
+<h2>أدخل العبوات</h2>
+<p class="muted">سعر وكمية كل عبوة، والأداة تحسب سعر الوحدة وتقولك أنسب واحدة.</p>
+<div id="products"></div>
+<button onclick="compare()">قارن</button>
+<div id="out" class="result hidden"></div>
+</div>
+<div class="card">
+<h2>ملحوظة</h2>
+<p>المقارنة بالسعر فقط. الجودة وتاريخ الصلاحية والعبوة الأنسب لاستهلاكك عوامل مهمة برضه: الأوفر بالكيلو مش دايمًا الأفضل لو الكمية هتبوظ قبل ما تخلصها.</p>
+</div>
+
+</main>
+<footer>
+<p>تعمل هذه الأداة بالكامل على جهازك، ولا تُحفظ أو تُرسل أي بيانات إلى أي خادم.</p>
+<p>أداة مجانية مفتوحة المصدر · بُنيت بمساعدة أدوات ذكاء اصطناعي · <a href="https://github.com/abood-ayman/unit-price-comparator-ar">الكود على GitHub</a></p>
+</footer>
+<script>
+window.__jserrors=[];window.addEventListener('error',function(e){window.__jserrors.push(String(e.message))});
+const g = id => document.getElementById(id);
+const num = id => { const v = parseFloat(g(id).value); return isNaN(v) ? 0 : v; };
+const fmt = x => x.toLocaleString('ar-EG', { maximumFractionDigits: 2 });
+
+const UNITS = {
+  kg:  { f: 'w', to: 1,    label: 'كيلوجرام' },
+  g:   { f: 'w', to: 0.001, label: 'جرام' },
+  l:   { f: 'v', to: 1,    label: 'لتر' },
+  ml:  { f: 'v', to: 0.001, label: 'ملليلتر' },
+  pcs: { f: 'c', to: 1,    label: 'قطعة' }
+};
+const FAMILY_LABEL = { w: 'الكيلوجرام', v: 'اللتر', c: 'القطعة' };
+const N = 3;
+
+function buildRows() {
+  let h = '';
+  for (let i = 1; i <= N; i++) {
+    h += '<div class="card" style="margin:10px 0;padding:12px">' +
+      '<h3 style="margin:0 0 8px">عبوة ' + String.fromCharCode(0x660 + i) + (i === 3 ? ' (اختيارية)' : '') + '</h3>' +
+      '<div class="row">' +
+      '<div><label for="price' + i + '">السعر (جنيه)</label><input type="number" inputmode="decimal" id="price' + i + '" min="0" placeholder="50"></div>' +
+      '<div><label for="qty' + i + '">الكمية</label><input type="number" inputmode="decimal" id="qty' + i + '" min="0" placeholder="500"></div>' +
+      '<div><label for="unit' + i + '">الوحدة</label><select id="unit' + i + '">' +
+      '<option value="g">جرام</option><option value="kg">كيلوجرام</option><option value="ml">ملليلتر</option><option value="l">لتر</option><option value="pcs">قطعة</option>' +
+      '</select></div>' +
+      '</div></div>';
+  }
+  g('products').innerHTML = h;
+}
+
+function readProducts() {
+  const ps = [];
+  for (let i = 1; i <= N; i++) {
+    const price = num('price' + i), qty = num('qty' + i), unit = g('unit' + i).value;
+    if (price > 0 && qty > 0) ps.push({ i, price, qty, unit, baseQty: qty * UNITS[unit].to, family: UNITS[unit].f });
+  }
+  return ps;
+}
+
+function compareList(ps) {
+  for (const p of ps) p.unitPrice = p.price / p.baseQty;
+  let best = ps[0];
+  for (const p of ps) if (p.unitPrice < best.unitPrice) best = p;
+  return { ps, best };
+}
+
+function compare() {
+  const ps = readProducts();
+  const el = g('out');
+  el.classList.remove('hidden');
+  if (ps.length < 2) { el.innerHTML = '<p>أدخل عبوتين على الأقل بسعر وكمية صحيحين.</p>'; return; }
+  const fams = new Set(ps.map(p => p.family));
+  if (fams.size > 1) { el.innerHTML = '<p>الوحدات المختارة من أنواع مختلفة (وزن وحجم وقطع). قارن عبوات بنفس نوع الوحدة.</p>'; return; }
+  const { best } = compareList(ps);
+  const per = FAMILY_LABEL[best.family];
+  let h = '<p class="big">الأوفر: <b>عبوة ' + String.fromCharCode(0x660 + best.i) + '</b> بسعر ' + fmt(best.unitPrice) + ' جنيه لكل ' + per + '</p><ul>';
+  for (const p of ps) {
+    const diff = ((p.unitPrice / best.unitPrice) - 1) * 100;
+    h += '<li>عبوة ' + String.fromCharCode(0x660 + p.i) + ': ' + fmt(p.unitPrice) + ' جنيه/' + per +
+         (p === best ? ' <b>— الأوفر</b>' : ' (أغلى بنسبة ' + fmt(diff) + '٪)') + '</li>';
+  }
+  h += '</ul>';
+  el.innerHTML = h;
+}
+
+window.__test = function () {
+  const ps = [
+    { i: 1, price: 50, qty: 500, unit: 'g', baseQty: 0.5, family: 'w' },
+    { i: 2, price: 90, qty: 1, unit: 'kg', baseQty: 1, family: 'w' }
+  ];
+  const { best } = compareList(ps);
+  const ok1 = best.i === 2 && Math.abs(best.unitPrice - 90) < 0.001 && Math.abs(ps[0].unitPrice - 100) < 0.001;
+  const vs = compareList([{ i: 1, price: 20, qty: 750, unit: 'ml', baseQty: 0.75, family: 'v' }, { i: 2, price: 25, qty: 1, unit: 'l', baseQty: 1, family: 'v' }]);
+  const ok2 = vs.best.i === 2;
+  return { pass: ok1 && ok2, details: { ps, vs: vs.best } };
+};
+
+window.__demo = function () {
+  g('price1').value = 38; g('qty1').value = 1; g('unit1').value = 'kg';
+  g('price2').value = 175; g('qty2').value = 5; g('unit2').value = 'kg';
+  g('price3').value = 30; g('qty3').value = 700; g('unit3').value = 'g';
+  compare();
+};
+
+buildRows();
+
+</script>
+</body>
+</html>
